@@ -1,53 +1,74 @@
 # llm-revenue-analyzer
 
-LLM-powered **Revenue Reporting Assistant**: natural language → SQL insights + narrative summary (telco/Zuora-style).
+Production-grade local demo and API for LLM cost + revenue analytics (FastAPI + Postgres + Alembic + Prometheus).
 
-## What you get (production-grade template)
+## Features
 
-- FastAPI service with structured logging
-- Config via environment variables (`.env`)
-- Dockerfile + local dev instructions
-- Basic CI (GitHub Actions), linting (ruff), tests (pytest)
-- Clean `src/` layout + typed interfaces
+- LLM usage and revenue event ingestion
+- Cost computation from configurable pricing catalog (`data/pricing.yaml`)
+- Budget guardrails (soft warning + hard reject)
+- Analytics by tenant/model/feature/time window
+- Simple anomaly detection for daily cost spikes
+- Prometheus metrics + structured logs with request IDs
+- Docker Compose local stack (`api` + `postgres`)
 
-> **Important:** Do not commit secrets. Use `.env` locally and GitHub Secrets in CI/CD.
+## Quickstart
 
-## What it does
-
-- Accepts a natural language question
-- Generates a safe SQL query template (parameterized)
-- Executes against a configured database (demo: SQLite)
-- Summarizes results using an LLM
-
-> For client work (e.g., Zuora), you'd connect to the appropriate data warehouse and implement strict guardrails.
-
-## Architecture
-
-```mermaid
-flowchart TD
-  A[User] --> B[FastAPI]
-  B --> C[Prompt-to-SQL Guardrails]
-  C --> D[(Database)]
-  D --> E[Result Formatter]
-  E --> F[LLM Summarizer]
-  F --> B --> A
-```
-
-## Run locally
+1. Create env file and install deps.
 
 ```bash
 cp .env.example .env
-python -m venv .venv && source .venv/bin/activate
-pip install -e ".[dev]"
-python scripts/seed_demo_db.py
-make dev
+python -m pip install --upgrade pip
+python -m pip install -e ".[dev]"
 ```
 
-## Example request
+2. Start Postgres + API.
 
 ```bash
-curl -X POST http://localhost:8000/v1/query \
-  -H "Content-Type: application/json" \
-  -d '{"question":"What were monthly recurring revenue totals by month in 2025?"}'
+make up
 ```
 
+3. Seed demo data (~560 events total across 14 days, 2 tenants).
+
+```bash
+make seed
+```
+
+4. Run demo summary printer.
+
+```bash
+make demo
+```
+
+5. Run checks.
+
+```bash
+make lint
+make typecheck
+make test
+```
+
+## API Endpoints
+
+- `POST /events/llm`
+- `POST /events/revenue`
+- `GET /metrics/summary?tenant_id=&from=&to=`
+- `GET /metrics/by-model?tenant_id=&from=&to=&granularity=total|day`
+- `GET /metrics/by-feature?tenant_id=&from=&to=&granularity=total|day`
+- `GET /budgets/status?tenant_id=`
+- `POST /budgets/set`
+- `GET /health`
+- `GET /version`
+- `GET /metrics` (Prometheus)
+
+## Example Requests
+
+See `examples/`.
+
+## Docs
+
+- `docs/architecture.md`
+- `docs/data-model.md`
+- `docs/pricing.md`
+- `docs/budgets-alerts.md`
+- `docs/runbooks.md`
